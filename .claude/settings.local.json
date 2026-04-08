@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(docker:*)",
+      "Bash(curl:*)",
+      "Bash(python:*)",
+      "Bash(GEMINI_API_KEY=AIzaSyBL_af-414OJMPP1l_uZTdvuDC5w7aCzt8 DATABASE_URL=postgresql+asyncpg://clinicflow:clinicflow_secret@localhost:5432/clinicflow python:*)"
+    ]
+  }
+}
