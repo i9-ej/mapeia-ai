@@ -1,0 +1,11 @@
+# Ambiente
+.env
+.venv/
+__pycache__/
+*.pyc
+
+# Docker
+docker-compose.override.yml
+
+# Outros
+.DS_Store
