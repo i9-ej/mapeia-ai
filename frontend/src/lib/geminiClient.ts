@@ -5,11 +5,6 @@ export {
     getGeminiKey as getApiKey,
     saveGeminiKey as saveApiKey,
     callAI as callGemini,
-    generateProcessModel,
-    modelToBpmnXml,
-    type ProcessStep,
-    type ProcessFlow,
-    type ProcessModel,
 } from "./aiClient";
 
 export interface GeminiMessage {

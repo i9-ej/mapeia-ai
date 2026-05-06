@@ -108,7 +108,7 @@ export interface Project {
     clinic_name: string;
     sector: string;
     objectives?: string;
-    status: "draft" | "analysis" | "bpmn_ready" | "complete";
+    status: "draft" | "complete";
     created_at: string;
     updated_at?: string;
 }

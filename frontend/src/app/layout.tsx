@@ -3,8 +3,8 @@ import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 
 export const metadata: Metadata = {
-  title: "ClinicFlow Architect",
-  description: "Plataforma de mapeamento e otimização de processos para clínicas médicas",
+  title: "i9 Clinic",
+  description: "Consultoria, mapeamento e automação de processos",
 };
 
 export default function RootLayout({

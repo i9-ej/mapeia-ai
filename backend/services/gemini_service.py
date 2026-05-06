@@ -11,48 +11,98 @@ genai.configure(api_key=GEMINI_API_KEY)
 
 MODEL_NAME = "gemini-2.0-flash"
 
+# ---------------------------------------------------------------------------
+# System instruction reutilizado em todos os prompts de mapeamento BPM
+# ---------------------------------------------------------------------------
+BPM_SYSTEM_ROLE = (
+    "Você é um consultor sênior de Business Process Management (BPM), "
+    "Design de Processos e Consultoria Operacional especializado no setor de saúde. "
+    "Seus entregáveis devem ter qualidade de consultoria premium — extremamente claros, "
+    "detalhados, profissionais, padronizados e visualmente estruturados. "
+    "Use linguagem executiva e objetiva. Nunca simplifique processos complexos. "
+    "Nunca deixe etapas sem detalhamento suficiente. "
+    "Mantenha consistência absoluta em estrutura e terminologia."
+)
+
 
 def _get_model():
     return genai.GenerativeModel(MODEL_NAME)
 
 
+def _extract_json(text: str) -> str:
+    """Extract JSON from markdown code blocks if present."""
+    text = text.strip()
+    if "```" in text:
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+    return text.strip()
+
+
 async def analyze_process_as_is(context_text: str, project_info: dict) -> dict:
     """
     Analyze document context and extract AS-IS process structure.
-    Returns a structured dict with steps, actors, pain points, and clarification questions.
+    Returns a structured dict with expanded stage detail (9 fields per stage),
+    executive summary, actors, pain points, and clarification questions.
     """
-    prompt = f"""
-Você é um especialista em mapeamento de processos de clínicas médicas.
+    prompt = f"""{BPM_SYSTEM_ROLE}
 
-**Projeto:**
-- Clínica: {project_info.get('clinic_name', 'N/A')}
-- Setor: {project_info.get('sector', 'N/A')}
-- Objetivos: {project_info.get('objectives', 'N/A')}
+Você está conduzindo o mapeamento AS-IS (estado atual) de um processo operacional.
 
-**Documentos / Transcrições fornecidos:**
----
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONTEXTO DO PROJETO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Clínica / Organização: {project_info.get('clinic_name', 'N/A')}
+- Setor / Departamento: {project_info.get('sector', 'N/A')}
+- Objetivos Declarados: {project_info.get('objectives', 'N/A')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DOCUMENTOS / TRANSCRIÇÕES FORNECIDOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {context_text[:6000]}
----
 
-Com base nestas informações, realize:
-1. Identifique e estruture o processo AS-IS (estado atual)
-2. Liste todos os atores/responsáveis envolvidos
-3. Identifique gargalos, problemas e ineficiências
-4. Liste EXATAMENTE as perguntas de clarificação necessárias para completar o mapeamento (se houver lacunas)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INSTRUÇÕES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Analise profundamente o conteúdo fornecido e execute:
 
-Responda **exclusivamente** em JSON válido com o seguinte schema:
+1. **Resumo Executivo** — Síntese do processo em 3-5 frases de nível executivo.
+2. **Mapeamento de Etapas** — Para CADA etapa do processo, detalhe obrigatoriamente os 9 campos:
+   - Nome da Etapa (claro e conciso)
+   - Objetivo da Etapa (por que existe)
+   - Responsável Principal (quem executa)
+   - Inputs Necessários (informações/recursos de entrada)
+   - Atividades Realizadas (ações detalhadas)
+   - Outputs Gerados (entregas da etapa)
+   - Dependências (equipes/processos que dependem desta etapa)
+   - Riscos / Gargalos Identificados (problemas potenciais)
+   - Notas Operacionais (exceções, considerações relevantes)
+3. **Atores / Responsáveis** envolvidos no processo.
+4. **Pontos de Dor** — Problemas e ineficiências observadas.
+5. **Gargalos** — Pontos onde o fluxo fica restrito.
+6. **Perguntas de Clarificação** — SOMENTE se existirem lacunas que impeçam um mapeamento completo.
+
+Responda **exclusivamente** em JSON válido com o schema abaixo:
 {{
   "process_name": "string",
-  "summary": "string",
+  "executive_summary": "string (resumo executivo de 3-5 frases)",
+  "process_type": "as_is",
   "actors": ["string"],
   "steps": [
     {{
       "id": "step_1",
       "name": "string",
-      "actor": "string",
-      "description": "string",
+      "objective": "string (por que esta etapa existe)",
+      "responsible": "string (ator principal)",
+      "inputs": ["string (recursos/informações necessários)"],
+      "activities": ["string (ações executadas nesta etapa)"],
+      "outputs": ["string (entregas geradas)"],
+      "dependencies": ["string (processos/equipes dependentes)"],
+      "risks_bottlenecks": ["string (riscos e gargalos desta etapa)"],
+      "operational_notes": "string (exceções e considerações)",
       "type": "task|decision|start|end",
-      "next": ["step_2"]
+      "next": ["step_2"],
+      "actor": "string"
     }}
   ],
   "pain_points": ["string"],
@@ -60,15 +110,16 @@ Responda **exclusivamente** em JSON válido com o seguinte schema:
   "clarification_questions": ["string"],
   "confidence_score": 0.0
 }}
+
+REGRAS CRÍTICAS:
+- Nunca resuma demais processos complexos.
+- Cada etapa DEVE ter todos os 9 campos preenchidos.
+- Se o contexto for insuficiente, liste perguntas de clarificação e ajuste o confidence_score para < 0.7.
+- Linguagem profissional e objetiva.
 """
     model = _get_model()
     response = model.generate_content(prompt)
-    text = response.text.strip()
-    # Extract JSON from markdown code blocks if present
-    if "```" in text:
-        text = text.split("```")[1]
-        if text.startswith("json"):
-            text = text[4:]
+    text = _extract_json(response.text)
     return json.loads(text)
 
 
@@ -84,29 +135,38 @@ async def generate_clarification_response(
         for item in consultant_answers
     ])
 
-    prompt = f"""
-Você é um especialista em mapeamento de processos de clínicas médicas.
+    prompt = f"""{BPM_SYSTEM_ROLE}
 
-**Projeto:**
+Você está refinando o mapeamento AS-IS de um processo operacional com base nas respostas do consultor.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONTEXTO DO PROJETO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - Clínica: {project_info.get('clinic_name', 'N/A')}
 - Setor: {project_info.get('sector', 'N/A')}
 
-**Análise prévia (rascunho AS-IS):**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ANÁLISE PRÉVIA (RASCUNHO AS-IS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {json.dumps(previous_analysis, ensure_ascii=False, indent=2)[:3000]}
 
-**Respostas do consultor às perguntas de clarificação:**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RESPOSTAS DO CONSULTOR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {qa_text}
 
-Agora, produza o modelo AS-IS COMPLETO E DEFINITIVO incorporando as respostas acima.
-Responda em JSON válido com o mesmo schema anterior. confidence_score deve ser >= 0.85 se as lacunas foram preenchidas.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INSTRUÇÕES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Produza o modelo AS-IS COMPLETO E DEFINITIVO incorporando todas as respostas acima.
+Cada etapa DEVE conter os 9 campos obrigatórios: name, objective, responsible, inputs, activities, outputs, dependencies, risks_bottlenecks, operational_notes.
+Inclua o executive_summary atualizado.
+Responda em JSON válido com o mesmo schema anterior.
+confidence_score deve ser >= 0.85 se as lacunas foram preenchidas adequadamente.
 """
     model = _get_model()
     response = model.generate_content(prompt)
-    text = response.text.strip()
-    if "```" in text:
-        text = text.split("```")[1]
-        if text.startswith("json"):
-            text = text[4:]
+    text = _extract_json(response.text)
     return json.loads(text)
 
 
@@ -115,27 +175,101 @@ async def generate_improvements_report(
     project_info: dict,
     knowledge_context: str = ""
 ) -> str:
-    """Generate a structured markdown improvements report."""
-    prompt = f"""
-Você é um consultor sênior de otimização de processos em clínicas médicas.
+    """Generate a premium consulting-grade process mapping and improvement report."""
+    prompt = f"""{BPM_SYSTEM_ROLE}
 
-**Projeto:** {project_info.get('clinic_name')} - {project_info.get('sector')}
+Você está produzindo um relatório profissional de Mapeamento de Processos e Melhorias para entrega ao cliente.
+O relatório deve ter qualidade de consultoria de primeira linha — imediatamente utilizável em ambiente corporativo.
 
-**Análise do Processo AS-IS:**
-{json.dumps(process_analysis, ensure_ascii=False, indent=2)[:4000]}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONTEXTO DO PROJETO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Clínica / Organização: {project_info.get('clinic_name')}
+- Setor / Departamento: {project_info.get('sector')}
 
-**Contexto de conhecimento do mercado:**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ANÁLISE DO PROCESSO AS-IS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{json.dumps(process_analysis, ensure_ascii=False, indent=2)[:5000]}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONTEXTO DE MERCADO / BASE DE CONHECIMENTO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {knowledge_context[:1500] if knowledge_context else 'N/A'}
 
-Gere um relatório profissional em Markdown com:
-# Relatório de Melhorias de Processo
-## 1. Diagnóstico do Processo Atual
-## 2. Principais Gargalos Identificados (tabela)
-## 3. Atores e Responsabilidades
-## 4. Plano de Ação Priorizado (tabela: Ação | Responsável | Prazo | Impacto)
-## 5. Processos TO-BE Recomendados (passo a passo simplificado)
-## 6. KPIs de Monitoramento
-## 7. Conclusão
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TEMPLATE OBRIGATÓRIO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Gere o relatório EXATAMENTE na estrutura Markdown abaixo. Não altere a estrutura.
+
+# 📄 MAPEAMENTO DE PROCESSO — [NOME DO PROCESSO]
+
+## 1. Resumo Executivo
+Síntese executiva do processo: o que é, por que existe, escopo e principais observações em 3-5 parágrafos concisos.
+
+---
+
+## 2. Etapas do Processo
+
+Para CADA etapa identificada, use este formato:
+
+### Etapa [N] — [Nome da Etapa]
+- **Objetivo:** Por que esta etapa existe
+- **Responsável:** Quem executa
+- **Inputs:** Informações e recursos necessários
+- **Atividades:** Ações executadas detalhadamente
+- **Outputs:** Entregas geradas por esta etapa
+- **Dependências:** Processos e equipes que dependem desta etapa
+- **Riscos / Gargalos:** Problemas potenciais ou observados
+- **Notas Operacionais:** Exceções e considerações relevantes
+
+(Repetir para TODAS as etapas)
+
+---
+
+# 📄 RELATÓRIO DE MELHORIAS — [NOME DO PROCESSO]
+
+Para CADA melhoria identificada, use este formato:
+
+## Melhoria [N]
+- **Problema Identificado:** Descrição objetiva do problema
+- **Impacto Operacional / Negócio:** Consequências causadas pelo problema
+- **Causa Raiz Provável:** Análise lógica da causa raiz
+- **Recomendação de Melhoria:** Ação corretiva recomendada
+- **Benefício Esperado:** Resultado esperado após implementação
+- **Prioridade:** Alta | Média | Baixa
+- **Complexidade de Implementação:** Alta | Média | Baixa
+
+(Repetir para TODAS as melhorias identificadas — mínimo 5)
+
+---
+
+## Matriz de Priorização
+
+| # | Melhoria | Prioridade | Complexidade | Impacto Estimado |
+|---|----------|-----------|-------------|-----------------|
+(Tabela consolidando todas as melhorias)
+
+---
+
+## KPIs de Monitoramento
+
+Listar indicadores-chave para medir a eficácia das melhorias implementadas.
+
+---
+
+## Conclusão e Próximos Passos
+
+Encerramento executivo com recomendações de sequenciamento.
+
+REGRAS CRÍTICAS:
+- NUNCA resuma demais processos complexos.
+- NUNCA deixe etapas sem detalhamento.
+- NUNCA altere a estrutura do template.
+- Linguagem executiva, profissional e sofisticada.
+- Mínimo de 5 melhorias identificadas.
+- O relatório deve parecer produzido por uma consultoria de primeira linha.
 """
     model = _get_model()
     response = model.generate_content(prompt)
@@ -147,26 +281,82 @@ async def generate_n8n_report(
     project_info: dict,
     software_api_info: str = ""
 ) -> str:
-    """Generate n8n automation workflow suggestions report."""
-    prompt = f"""
-Você é um especialista em automação de processos (n8n, RPA, APIs).
+    """Generate premium n8n automation workflow suggestions report."""
+    prompt = f"""{BPM_SYSTEM_ROLE}
 
-**Projeto:** {project_info.get('clinic_name')} - {project_info.get('sector')}
+Você é também um especialista em automação de processos com n8n, RPA e integrações via API.
+Produza um relatório de automação de nível consultivo para entrega ao cliente.
 
-**Análise do Processo:**
-{json.dumps(process_analysis, ensure_ascii=False, indent=2)[:3000]}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONTEXTO DO PROJETO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Clínica / Organização: {project_info.get('clinic_name')}
+- Setor / Departamento: {project_info.get('sector')}
 
-**Informações de APIs dos softwares utilizados:**
-{software_api_info or 'Não identificado ainda.'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ANÁLISE DO PROCESSO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{json.dumps(process_analysis, ensure_ascii=False, indent=2)[:4000]}
 
-Gere um relatório profissional em Markdown:
-# Relatório de Automação com n8n
-## 1. Softwares Identificados no Processo
-## 2. Disponibilidade de APIs (tabela: Software | API Disponível | Documentação | Tipo de Integração)
-## 3. Fluxos de Automação Propostos no n8n (diagrama textual de cada fluxo)
-## 4. Estimativa de Economia de Tempo
-## 5. Roadmap de Implementação
-## 6. Integrações Nativas n8n Recomendadas
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INFORMAÇÕES DE APIs DOS SOFTWARES UTILIZADOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{software_api_info or 'Não identificado. Verificar documentação oficial dos fornecedores.'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TEMPLATE OBRIGATÓRIO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Gere o relatório EXATAMENTE na estrutura Markdown abaixo:
+
+# 📄 RELATÓRIO DE AUTOMAÇÃO COM N8N — [NOME DO PROCESSO]
+
+## 1. Resumo Executivo
+Visão geral das oportunidades de automação e ROI potencial.
+
+## 2. Softwares Identificados no Processo
+
+| Software | Função no Processo | Criticidade |
+|----------|-------------------|-------------|
+
+## 3. Disponibilidade de APIs
+
+| Software | API Disponível | Documentação | Tipo de Integração | Observações |
+|----------|---------------|-------------|-------------------|-------------|
+
+## 4. Fluxos de Automação Propostos no n8n
+
+Para CADA fluxo proposto:
+
+### Automação [N] — [Nome do Fluxo]
+- **Problema que Resolve:** Descrição do problema atual
+- **Fluxo Proposto:** Diagrama textual passo a passo do workflow n8n
+- **Nodes n8n Utilizados:** Lista dos nodes necessários
+- **Gatilho (Trigger):** O que inicia o fluxo
+- **Resultado Esperado:** Output da automação
+- **Economia de Tempo Estimada:** Horas/semana economizadas
+- **Complexidade de Implementação:** Alta | Média | Baixa
+
+## 5. Estimativa Consolidada de Economia
+
+| Automação | Tempo Atual | Tempo Automatizado | Economia Semanal |
+|-----------|------------|-------------------|-----------------|
+
+## 6. Roadmap de Implementação
+
+| Fase | Automações | Prazo Estimado | Pré-requisitos |
+|------|-----------|---------------|---------------|
+
+## 7. Integrações Nativas n8n Recomendadas
+Lista de nodes e integrações nativas do n8n que se aplicam.
+
+## 8. Conclusão e Recomendações Estratégicas
+Encerramento executivo com priorização das automações.
+
+REGRAS CRÍTICAS:
+- Mínimo de 3 fluxos de automação propostos.
+- Linguagem executiva, técnica e sofisticada.
+- Dados específicos do projeto — nunca genéricos.
 """
     model = _get_model()
     response = model.generate_content(prompt)

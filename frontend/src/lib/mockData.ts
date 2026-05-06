@@ -17,7 +17,7 @@ export const MOCK_PROJECTS: Project[] = [
         clinic_name: "Instituto CardioVida",
         sector: "Atendimento",
         objectives: "Mapear AS-IS do processo de agendamento até a consulta. Identificar gargalos.",
-        status: "bpmn_ready",
+        status: "draft",
         created_at: "2026-02-18T09:00:00Z",
         updated_at: "2026-02-27T11:00:00Z",
     },
@@ -27,7 +27,7 @@ export const MOCK_PROJECTS: Project[] = [
         clinic_name: "Clínica BelaVida",
         sector: "RH",
         objectives: "Digitalizar escalonamento de médicos e controle de ponto.",
-        status: "analysis",
+        status: "complete",
         created_at: "2026-02-26T08:00:00Z",
     },
     {
@@ -47,83 +47,7 @@ export const MOCK_DOCUMENTS: DocumentMeta[] = [
     { id: 3, filename: "dados_faturamento.xlsx", file_type: "xlsx", file_size: 89000, created_at: "2026-02-22T09:15:00Z", has_content: true },
 ];
 
-export const MOCK_PROCESS: ProcessMeta = {
-    id: 1,
-    process_name: "Processo de Faturamento AS-IS",
-    process_type: "as_is",
-    version: 1,
-    created_at: "2026-02-25T15:00:00Z",
-    has_bpmn: true,
-};
 
-export const MOCK_BPMN_XML = `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
-                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
-                  xmlns:di="http://www.omg.org/spec/BPMN/20100524/DI"
-                  id="Definitions_1"
-                  targetNamespace="http://clinicflow.io/bpmn">
-  <bpmn:process id="Process_1" name="Processo de Faturamento" isExecutable="false">
-    <bpmn:startEvent id="StartEvent_1" name="Consulta Realizada"/>
-    <bpmn:task id="Task_1" name="Registrar Atendimento no Sistema"/>
-    <bpmn:task id="Task_2" name="Gerar Guia de Cobrança"/>
-    <bpmn:exclusiveGateway id="Gateway_1" name="Convênio ou Particular?"/>
-    <bpmn:task id="Task_3" name="Submeter ao Convênio (TISS)"/>
-    <bpmn:task id="Task_4" name="Emitir Nota Fiscal"/>
-    <bpmn:task id="Task_5" name="Aguardar Glosa / Aprovação"/>
-    <bpmn:task id="Task_6" name="Baixar Pagamento"/>
-    <bpmn:endEvent id="EndEvent_1" name="Faturamento Concluído"/>
-    <bpmn:sequenceFlow id="f1" sourceRef="StartEvent_1" targetRef="Task_1"/>
-    <bpmn:sequenceFlow id="f2" sourceRef="Task_1" targetRef="Task_2"/>
-    <bpmn:sequenceFlow id="f3" sourceRef="Task_2" targetRef="Gateway_1"/>
-    <bpmn:sequenceFlow id="f4" sourceRef="Gateway_1" targetRef="Task_3" name="Convênio"/>
-    <bpmn:sequenceFlow id="f5" sourceRef="Gateway_1" targetRef="Task_4" name="Particular"/>
-    <bpmn:sequenceFlow id="f6" sourceRef="Task_3" targetRef="Task_5"/>
-    <bpmn:sequenceFlow id="f7" sourceRef="Task_5" targetRef="Task_6"/>
-    <bpmn:sequenceFlow id="f8" sourceRef="Task_4" targetRef="Task_6"/>
-    <bpmn:sequenceFlow id="f9" sourceRef="Task_6" targetRef="EndEvent_1"/>
-  </bpmn:process>
-  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
-    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">
-      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
-        <dc:Bounds x="152" y="232" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_1_di" bpmnElement="Task_1">
-        <dc:Bounds x="240" y="210" width="120" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_2_di" bpmnElement="Task_2">
-        <dc:Bounds x="410" y="210" width="120" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Gateway_1_di" bpmnElement="Gateway_1" isMarkerVisible="true">
-        <dc:Bounds x="585" y="225" width="50" height="50"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_3_di" bpmnElement="Task_3">
-        <dc:Bounds x="690" y="140" width="120" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_4_di" bpmnElement="Task_4">
-        <dc:Bounds x="690" y="290" width="120" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_5_di" bpmnElement="Task_5">
-        <dc:Bounds x="870" y="140" width="120" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_6_di" bpmnElement="Task_6">
-        <dc:Bounds x="1050" y="210" width="120" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="EndEvent_1_di" bpmnElement="EndEvent_1">
-        <dc:Bounds x="1232" y="232" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="f1_di" bpmnElement="f1"><di:waypoint x="188" y="250"/><di:waypoint x="240" y="250"/></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="f2_di" bpmnElement="f2"><di:waypoint x="360" y="250"/><di:waypoint x="410" y="250"/></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="f3_di" bpmnElement="f3"><di:waypoint x="530" y="250"/><di:waypoint x="585" y="250"/></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="f4_di" bpmnElement="f4"><di:waypoint x="610" y="225"/><di:waypoint x="610" y="180"/><di:waypoint x="690" y="180"/></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="f5_di" bpmnElement="f5"><di:waypoint x="610" y="275"/><di:waypoint x="610" y="330"/><di:waypoint x="690" y="330"/></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="f6_di" bpmnElement="f6"><di:waypoint x="810" y="180"/><di:waypoint x="870" y="180"/></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="f7_di" bpmnElement="f7"><di:waypoint x="990" y="180"/><di:waypoint x="1020" y="180"/><di:waypoint x="1020" y="250"/><di:waypoint x="1050" y="250"/></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="f8_di" bpmnElement="f8"><di:waypoint x="810" y="330"/><di:waypoint x="930" y="330"/><di:waypoint x="930" y="250"/><di:waypoint x="1050" y="250"/></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="f9_di" bpmnElement="f9"><di:waypoint x="1170" y="250"/><di:waypoint x="1232" y="250"/></bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-</bpmn:definitions>`;
 
 export const MOCK_IMPROVEMENTS_REPORT = `# Relatório de Melhorias de Processo
 
