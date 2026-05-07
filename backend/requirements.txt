@@ -21,7 +21,6 @@ anthropic>=0.40.0
 
 # Vector / Embeddings
 pgvector==0.3.6
-sentence-transformers==3.3.1
 
 # HTTP
 httpx==0.28.1
