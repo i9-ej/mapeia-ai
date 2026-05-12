@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+export const maxDuration = 300; // 5 minutos
+export const dynamic = 'force-dynamic';
+
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const CLAUDE_BASE = "https://api.anthropic.com/v1/messages";
 
